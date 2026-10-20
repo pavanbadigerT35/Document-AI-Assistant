@@ -1,0 +1,22 @@
+{
+  "description": "Labelled questions for the two SYNTHETIC sample PDFs produced by `python -m evaluation.sample_docs`. Each answerable item names the file and page that holds the answer, and an evidence_phrase that is checked against the extracted text on every run. Run: python -m evaluation.run_eval --pdf ..\\samples\\sample_api_testing_notes.pdf ..\\samples\\sample_cicd_pipeline_notes.pdf --dataset evaluation\\sample_dataset.json",
+  "answerable": [
+    {"question": "Which HTTP methods are idempotent?", "expected_file": "sample_api_testing_notes.pdf", "expected_pages": [1], "evidence_phrase": "GET, PUT and DELETE are idempotent"},
+    {"question": "What status code is returned after a successful POST?", "expected_file": "sample_api_testing_notes.pdf", "expected_pages": [1], "evidence_phrase": "201 Created"},
+    {"question": "What is consumer-driven contract testing and which tool is common?", "expected_file": "sample_api_testing_notes.pdf", "expected_pages": [2], "evidence_phrase": "consumer-driven contract testing"},
+    {"question": "What is the p95 latency target?", "expected_file": "sample_api_testing_notes.pdf", "expected_pages": [3], "evidence_phrase": "800 milliseconds"},
+    {"question": "What does a soak test reveal?", "expected_file": "sample_api_testing_notes.pdf", "expected_pages": [3], "evidence_phrase": "memory leaks"},
+    {"question": "What are the stages of a typical pipeline?", "expected_file": "sample_cicd_pipeline_notes.pdf", "expected_pages": [1], "evidence_phrase": "build, unit tests, integration tests"},
+    {"question": "How many automatic retries are allowed for a flaky test?", "expected_file": "sample_cicd_pipeline_notes.pdf", "expected_pages": [2], "evidence_phrase": "two automatic retries"},
+    {"question": "What happens to a test that fails intermittently on three consecutive days?", "expected_file": "sample_cicd_pipeline_notes.pdf", "expected_pages": [2], "evidence_phrase": "quarantine suite"},
+    {"question": "What share of traffic does a canary release send first?", "expected_file": "sample_cicd_pipeline_notes.pdf", "expected_pages": [3], "evidence_phrase": "five percent of traffic"},
+    {"question": "How quickly must a bad release be rolled back?", "expected_file": "sample_cicd_pipeline_notes.pdf", "expected_pages": [3], "evidence_phrase": "within ten minutes"}
+  ],
+  "unanswerable": [
+    "What is the price of the training course?",
+    "Who is the instructor of the program?",
+    "What is the capital city of France?",
+    "How do I configure Kubernetes with Helm charts?",
+    "What is the recipe for chocolate cake?"
+  ]
+}

@@ -1,0 +1,21 @@
+# secrets and local data
+.env
+*.env.local
+data/uploads/*
+data/chroma/*
+data/*.db
+!data/.gitkeep
+!data/uploads/.gitkeep
+!data/chroma/.gitkeep
+# python
+__pycache__/
+*.pyc
+.venv/
+venv/
+.pytest_cache/
+backend/evaluation/last_report.json
+# node
+node_modules/
+dist/
+*.tsbuildinfo
+coverage/

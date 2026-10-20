@@ -1,0 +1,30 @@
+{
+  "description": "Hand-written questions about 'AI-Driven Software Testing & QA Transformation Program' (the syllabus PDF). Every answerable question has an evidence_phrase that is checked against the extracted text of expected_pages, so labels cannot silently drift. Unanswerable questions ask about things the syllabus does not contain.",
+  "answerable": [
+    {"question": "Who is the target audience for this program?", "expected_pages": [1], "evidence_phrase": "Target Audience"},
+    {"question": "What are the prerequisites for the course?", "expected_pages": [1], "evidence_phrase": "Prerequisites"},
+    {"question": "Which prompt patterns for QA are taught, such as negative testing and boundary value analysis?", "expected_pages": [2], "evidence_phrase": "Boundary Value Analysis Prompt"},
+    {"question": "What is chain-of-thought and few-shot prompting?", "expected_pages": [2], "evidence_phrase": "Few-shot prompting"},
+    {"question": "What are the limitations and risks of using AI in QA, like hallucination and bias?", "expected_pages": [3], "evidence_phrase": "Hallucination"},
+    {"question": "What does the Jira for QA section cover about bug lifecycle?", "expected_pages": [4], "evidence_phrase": "Bug lifecycle"},
+    {"question": "How is Zephyr used for test management and traceability?", "expected_pages": [4], "evidence_phrase": "Zephyr Test Management"},
+    {"question": "How is AI used to generate test data, including valid and invalid and boundary data?", "expected_pages": [5], "evidence_phrase": "Boundary data sets"},
+    {"question": "What is an RTM traceability matrix and how does AI help generate it?", "expected_pages": [5], "evidence_phrase": "RTM (Traceability Matrix)"},
+    {"question": "What does the governance framework include, such as logging and audit practices?", "expected_pages": [6], "evidence_phrase": "Logging & audit practices"},
+    {"question": "What is self-healing automation and how does it handle locator changes?", "expected_pages": [6], "evidence_phrase": "Handling locator changes"},
+    {"question": "How is API test generation from Swagger and visual comparison covered?", "expected_pages": [7], "evidence_phrase": "API test generation from Swagger"},
+    {"question": "How is time saved calculated when comparing manual work with AI?", "expected_pages": [7], "evidence_phrase": "Time saved calculation"},
+    {"question": "What are the final deliverables of the capstone project?", "expected_pages": [8], "evidence_phrase": "Final Deliverables"},
+    {"question": "What does the trainer need to set up for the AI test automation module with Selenium and Playwright?", "expected_pages": [8], "evidence_phrase": "Selenium/Playwright"},
+    {"question": "What is the total duration of the whole program in hours?", "expected_pages": [1], "evidence_phrase": "40 Hours"}
+  ],
+  "unanswerable": [
+    "What is the fee or price of this program?",
+    "Who is the instructor or trainer by name?",
+    "What is the refund and cancellation policy?",
+    "When does the next batch start?",
+    "How do I configure a Kubernetes cluster with Helm charts?",
+    "What is the capital city of France?",
+    "What is the recipe for chocolate cake?"
+  ]
+}
