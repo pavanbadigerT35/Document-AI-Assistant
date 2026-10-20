@@ -7,17 +7,20 @@
 @layer base {
   html { color-scheme: light; }
   body { @apply bg-page font-sans text-ink antialiased; }
-  h1, h2, h3 { @apply font-serif tracking-tight; }
-  :focus-visible { outline: 2px solid #0B6E6A; outline-offset: 2px; }
+  h1, h2, h3 { @apply font-serif font-normal tracking-tight; }
+  ::selection { background: #edfce9; color: #003c33; }
+  :focus-visible { outline: 2px solid #4c6ee6; outline-offset: 3px; }
 }
 
 @layer components {
-  .btn { @apply inline-flex items-center justify-center gap-2 rounded-md px-3.5 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50; }
-  .btn-primary { @apply btn bg-signal text-white hover:bg-signal-dark; }
-  .btn-quiet { @apply btn border border-line bg-white text-ink hover:bg-page; }
-  .btn-danger { @apply btn border border-fail/40 bg-white text-fail hover:bg-red-50; }
-  .field { @apply w-full rounded-md border border-line bg-white px-3 py-2 text-sm placeholder:text-ink-faint; }
-  .panel { @apply rounded-md border border-line bg-white; }
+  .btn { @apply inline-flex min-h-10 items-center justify-center gap-2 rounded-full px-5 py-2.5 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50; }
+  .btn-primary { @apply btn bg-signal text-white hover:bg-rail; }
+  .btn-quiet { @apply btn border border-line bg-white text-ink hover:border-ink hover:bg-white; }
+  .btn-danger { @apply btn border border-fail/30 bg-white text-fail hover:bg-red-50; }
+  .field { @apply w-full rounded border border-line bg-white px-4 py-3 text-sm placeholder:text-ink-faint; }
+  .field:focus { border-color: #4c6ee6; outline: none; }
+  .panel { @apply rounded-lg border border-line bg-white; }
+  .eyebrow { @apply font-mono text-xs uppercase tracking-[0.14em] text-ink-faint; }
 }
 
 @media (prefers-reduced-motion: reduce) {
