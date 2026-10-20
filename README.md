@@ -260,12 +260,3 @@ document-ai-assistant/
   docs/      syllabus_report.md  STATUS.md
   README.md  .gitignore
 ```
-
-## 5-minute demo script
-
-1. Dashboard: show the empty state and the "no Groq key" notice if applicable.
-2. Library: upload the syllabus plus the two PDFs from `samples\`; show statuses, then re-upload the syllabus to show the duplicate message.
-3. Search (scope: All): *"self-healing automation"*; point out filename, page, highlighted excerpt. Switch scope to one document.
-4. Chat: ask *"What are the limitations and risks of using AI in QA?"*; click the `S1` chip to jump to its source card. Then ask *"What is the fee for this program?"* and show the honest refusal.
-5. Topic explorer: click *Module 6* to search it. Quiz: generate 3 questions, reveal an answer, show its source page.
-6. Library: delete `sample_cicd_pipeline_notes.pdf`, then search *"flaky test retries"* to show its content is gone.
