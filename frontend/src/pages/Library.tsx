@@ -1,5 +1,5 @@
 import { ChevronDown, ChevronRight, Trash2, UploadCloud } from "lucide-react";
-import { Fragment, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../api/client";
 import { EmptyState, ErrorNotice, Notice, PageHeader, Spinner, StatusBadge } from "../components/ui";
@@ -8,11 +8,13 @@ import { errorMessage, formatBytes, formatDate } from "../lib";
 import type { UploadResult } from "../types";
 
 const TONE = { created: "success", duplicate: "info", failed: "warn", rejected: "warn" } as const;
+const UPLOAD_RESULTS_DURATION_MS = 25_000;
 
 export default function Library() {
   const { documents, loading, error, refresh } = useDocuments();
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [uploadPhase, setUploadPhase] = useState<"uploading" | "indexing">("uploading");
   const [results, setResults] = useState<UploadResult[] | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
@@ -21,12 +23,32 @@ export default function Library() {
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const input = useRef<HTMLInputElement>(null);
 
+  useEffect(() => {
+    if (!busy || uploadPhase !== "indexing") return;
+    const timer = window.setInterval(() => setProgress((value) => Math.min(95, value + 2)), 500);
+    return () => window.clearInterval(timer);
+  }, [busy, uploadPhase]);
+
+  useEffect(() => {
+    if (!results) return;
+    const timer = window.setTimeout(() => setResults(null), UPLOAD_RESULTS_DURATION_MS);
+    return () => window.clearTimeout(timer);
+  }, [results]);
+
   async function handleFiles(files: FileList | File[]) {
     const list = Array.from(files);
     if (!list.length) return;
-    setBusy(true); setProgress(0); setResults(null); setUploadError(null);
+    setBusy(true); setProgress(0); setUploadPhase("uploading"); setResults(null); setUploadError(null);
     try {
-      setResults((await api.uploadDocuments(list, setProgress)).results);
+      const response = await api.uploadDocuments(list, (fraction) => {
+        if (fraction >= 1) {
+          setUploadPhase("indexing");
+          setProgress(10);
+        } else {
+          setProgress(Math.round(fraction * 100));
+        }
+      });
+      setResults(response.results);
     } catch (e) {
       setUploadError(errorMessage(e));
     } finally {
@@ -62,8 +84,24 @@ export default function Library() {
 
       {busy && (
         <div className="mb-4" role="status">
-          <p className="mb-1 text-sm">{progress < 1 ? `Uploading… ${Math.round(progress * 100)}%` : "Indexing: extracting text and building embeddings. The first run downloads the embedding model, which can take a minute."}</p>
-          <progress className="h-2 w-full" value={progress < 1 ? progress : undefined} max={1} aria-label="Upload progress" />
+          {uploadPhase === "uploading" ? (
+            <p className="mb-1 text-sm">Uploading… {progress}%</p>
+          ) : (
+            <>
+              <p className="mb-1 text-sm">Indexing… {progress}%</p>
+              <p className="mb-1 text-xs text-ink-soft">Extracting text and building embeddings. The first run downloads the embedding model, which can take a minute.</p>
+            </>
+          )}
+          <div
+            className="h-2 w-full overflow-hidden rounded-full bg-line"
+            role="progressbar"
+            aria-label="Upload progress"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={progress}
+          >
+            <div className="h-full rounded-full bg-signal transition-[width] duration-500 ease-out" style={{ width: `${progress}%` }} />
+          </div>
         </div>
       )}
       {uploadError && <div className="mb-4"><ErrorNotice>{uploadError}</ErrorNotice></div>}

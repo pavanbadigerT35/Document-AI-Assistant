@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from "@testing-library/react";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -18,6 +18,7 @@ import SearchPage from "../pages/SearchPage";
 import Topics from "../pages/Topics";
 import { newId } from "../lib";
 import { SourceCard } from "../components/SourceCard";
+import type { UploadResult } from "../types";
 import { makeDoc, renderAt } from "./helpers";
 
 beforeEach(() => {
@@ -63,6 +64,43 @@ describe("Document library", () => {
     await userEvent.upload(screen.getByLabelText("PDF files to upload"), file);
     expect(await screen.findByText(/Already indexed as 'syllabus.pdf'/)).toBeInTheDocument();
     expect(api.uploadDocuments).toHaveBeenCalledTimes(1);
+  });
+
+  it("automatically dismisses upload results after 25 seconds", async () => {
+    api.uploadDocuments.mockResolvedValue({ results: [{ filename: "again.pdf", outcome: "duplicate", message: "Already indexed as 'syllabus.pdf'. Nothing was added.", document: makeDoc() }] });
+    renderAt(<Library />);
+    await screen.findByText("syllabus.pdf");
+    const timeoutSpy = vi.spyOn(window, "setTimeout");
+    try {
+      const file = new File(["%PDF-1.4"], "again.pdf", { type: "application/pdf" });
+      await userEvent.upload(screen.getByLabelText("PDF files to upload"), file);
+      await screen.findByText(/Already indexed/);
+      expect(screen.getByRole("list", { name: "Upload results" })).toHaveTextContent("Already indexed");
+      const dismissTimer = timeoutSpy.mock.calls.find(([, delay]) => delay === 25_000)?.[0];
+      expect(typeof dismissTimer).toBe("function");
+      act(() => { if (typeof dismissTimer === "function") dismissTimer(); });
+      expect(screen.queryByRole("list", { name: "Upload results" })).not.toBeInTheDocument();
+    } finally {
+      timeoutSpy.mockRestore();
+    }
+  });
+
+  it("shows animated estimated progress while indexing", async () => {
+    let finishUpload: ((response: { results: UploadResult[] }) => void) | undefined;
+    api.uploadDocuments.mockImplementation((_files, onProgress) => {
+      onProgress(1);
+      return new Promise((resolve) => { finishUpload = resolve; });
+    });
+    renderAt(<Library />);
+    await screen.findByText("syllabus.pdf");
+    const file = new File(["%PDF-1.4"], "new.pdf", { type: "application/pdf" });
+    await userEvent.upload(screen.getByLabelText("PDF files to upload"), file);
+
+    expect(await screen.findByText("Indexing… 10%")).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "12"), { timeout: 1500 });
+
+    finishUpload?.({ results: [] });
+    await waitFor(() => expect(screen.queryByRole("progressbar")).not.toBeInTheDocument());
   });
 
   it("deletes only after confirmation", async () => {
@@ -144,11 +182,41 @@ describe("AI chat", () => {
       sources: [{ source_id: "S1", chunk_id: "c", document_id: "doc-1", filename: "syllabus.pdf", page: 6, excerpt: "Handling locator changes", score: 0.6 }],
     });
     await ask("What is self-healing?");
-    const sources = await screen.findByRole("heading", { name: "Sources" });
-    expect(sources).toBeInTheDocument();
+    const sources = await screen.findByRole("button", { name: "Sources (1)" });
+    expect(sources).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByLabelText("Source: syllabus.pdf, page 6")).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("link", { name: "S1" }));
+    expect(sources).toHaveAttribute("aria-expanded", "true");
     expect(screen.getByLabelText("Source: syllabus.pdf, page 6")).toBeInTheDocument();
     expect(screen.getAllByText("S1").length).toBeGreaterThanOrEqual(2); // chip + card label
+    await userEvent.click(sources);
+    expect(sources).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByLabelText("Source: syllabus.pdf, page 6")).not.toBeInTheDocument();
     expect(api.chat).toHaveBeenCalledWith("What is self-healing?", []);
+  });
+
+  it("lets users edit a previous question and copy it", async () => {
+    api.chat.mockResolvedValue({
+      answer: "A helpful answer.", insufficient_evidence: false, warning: null, retrieval: meta, llm: null, sources: [],
+    });
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText } });
+
+    await ask("What is self-healing?");
+    const editButton = await screen.findByRole("button", { name: "Edit question: What is self-healing?" });
+    await userEvent.click(editButton);
+    const composer = screen.getByRole("textbox", { name: "Your question" });
+    expect(composer).toHaveValue("What is self-healing?");
+    expect(composer).toHaveFocus();
+
+    await userEvent.clear(composer);
+    await userEvent.type(composer, "How does self-healing work?");
+    await userEvent.click(screen.getByRole("button", { name: /^Ask/ }));
+    await waitFor(() => expect(api.chat).toHaveBeenLastCalledWith("How does self-healing work?", []));
+
+    await userEvent.click(screen.getByRole("button", { name: "Copy question: What is self-healing?" }));
+    expect(writeText).toHaveBeenCalledWith("What is self-healing?");
+    expect(await screen.findByText("Copied")).toBeInTheDocument();
   });
 
   it("states clearly when evidence is insufficient", async () => {
