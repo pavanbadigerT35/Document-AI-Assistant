@@ -10,6 +10,7 @@ import argparse
 import json
 import statistics
 import tempfile
+import time
 import uuid
 from pathlib import Path
 
@@ -31,14 +32,22 @@ def main() -> None:
     ap.add_argument("--pdf", required=True, nargs="+")
     ap.add_argument("--dataset", default=str(Path(__file__).with_name("eval_dataset.json")))
     ap.add_argument("--backend", choices=["sentence-transformers", "hash"], default=None)
+    ap.add_argument("--chunk-target-tokens", type=int, default=None)
+    ap.add_argument("--chunk-max-tokens", type=int, default=None)
+    ap.add_argument("--chunk-overlap-tokens", type=int, default=None)
     ap.add_argument("--with-llm", action="store_true")
     ap.add_argument("--out", default=str(Path(__file__).with_name("last_report.json")))
     args = ap.parse_args()
 
     overrides = {"embedding_backend": args.backend} if args.backend else {}
+    for name in ("chunk_target_tokens", "chunk_max_tokens", "chunk_overlap_tokens"):
+        value = getattr(args, name)
+        if value is not None:
+            overrides[name] = value
     with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp:  # Windows keeps SQLite/Chroma files locked at exit
         settings = Settings(data_dir=Path(tmp), **overrides)
         c = build_container(settings)
+        indexing_duration_ms = 0.0
         with c.session_factory() as db:
             from app.services.pdf_service import extract_pdf
             pages_text: dict[tuple[str, int], str] = {}  # (filename, page) -> extracted text, for label checking
@@ -46,12 +55,13 @@ def main() -> None:
                 path = Path(pdf)
                 doc = Document(id=str(uuid.uuid4()), filename=path.name, stored_name="eval.pdf", file_hash=uuid.uuid4().hex)
                 db.add(doc); db.commit()
+                indexing_start = time.perf_counter()
                 ingest_document(c, db, doc, path)
+                indexing_duration_ms += (time.perf_counter() - indexing_start) * 1000
                 print(f"Indexed {path.name}: status={doc.status}, pages={doc.page_count}, chunks={doc.chunk_count}")
                 if doc.status != "Ready":
                     raise SystemExit(f"Indexing failed: {doc.error_message}")
                 pages_text.update({(path.name, p.page_number): p.text for p in extract_pdf(path).pages})
-
         data = json.loads(Path(args.dataset).read_text(encoding="utf-8"))
         rows, latencies, label_problems = [], [], []
         for item in data["answerable"]:
@@ -73,7 +83,11 @@ def main() -> None:
         n = len(rows)
         report = {
             "embedding_model": c.embedder.name,
-            "chunk_size_chars": settings.chunk_size_chars,
+            "chunk_target_tokens": settings.chunk_target_tokens,
+            "chunk_max_tokens": settings.chunk_max_tokens,
+            "chunk_overlap_tokens": settings.chunk_overlap_tokens,
+            "chunks_created": c.store.count(),
+            "indexing_duration_ms": round(indexing_duration_ms, 1),
             "answerable_questions": n,
             "unanswerable_questions": len(un_scores),
             "recall_at_5_page": round(sum(r["hit"] for r in rows) / n, 3),

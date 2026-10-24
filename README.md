@@ -12,9 +12,9 @@ A local web app that lets you upload PDFs (training notes, syllabi, technical do
 |---|---|
 | Library | Multi-PDF upload (drag-and-drop), progress, status badges (Pending / Processing / Ready / Failed), details, delete, duplicate detection |
 | Knowledge search | Semantic search over all PDFs or selected ones, page numbers, highlighted excerpts. **No LLM needed** |
-| AI chat | Answers only from retrieved passages, `[S1]` citations linked to source cards, honest "not enough evidence" replies, suggested questions built from real headings |
+| AI chat | Answers only from retrieved passages, `[S1]` citations linked to source cards, honest "not enough evidence" replies, suggested questions grounded in indexed section text |
 | Topic explorer | Headings detected from font styling and numbering (labelled *heuristic*); click one to search it |
-| Quiz & revision | Multiple-choice or short-answer questions from retrieved passages, reveal answer, source and page shown, labelled as AI-generated |
+| Quiz & revision | Multiple-choice or descriptive-answer questions from retrieved passages, reveal answer, source and page shown, labelled as AI-generated |
 | Dashboard | Live statistics and activity read from the database |
 
 ## Architecture
@@ -25,7 +25,7 @@ flowchart LR
   V --> H{SHA-256 already indexed?}
   H -- yes --> D[Report duplicate, add nothing]
   H -- no --> X[PyMuPDF text + headings per page]
-  X --> C[Page-aware chunking ~2000 chars / 300 overlap]
+  X --> C[Page-aware structure and sentence-aware chunking ~180 tokens / 50 overlap]
   C --> E[Sentence-Transformers embeddings - local]
   E --> S[(ChromaDB - persistent)]
   X --> M[(SQLite: documents, topics, activity)]
@@ -39,13 +39,29 @@ flowchart LR
 Key design decisions:
 
 - **A chunk never spans two pages**, so every citation's page number is exact.
+- **Chunking is structure- and sentence-aware.** It uses detected PDF headings only when their extracted text matches, then prefers paragraph and sentence boundaries. Target/maximum/overlap defaults are 180/250/50 tokens. During sentence-transformer ingestion, counts and splitting use the model tokenizer and maximum sequence length, including special tokens; the configured maximum is clamped to that model limit. The hash test embedder uses a lightweight estimate and is not representative of production tokenization.
 - **Citations come from stored chunk metadata, never from the model.** The model only says "S2"; the backend maps that to the real filename/page, and strips any id it was not given.
+- **Suggested chat questions use both extracted headings and their indexed page chunks.** A deterministic, no-LLM generator filters incomplete/generic headings and short sections, creates questions only when the section text supports an intent, and deduplicates similar topics. It runs on demand when the chat scope changes; selecting multiple documents sends all selected IDs.
 - **Two layers against unsupported answers:** (1) a similarity threshold stops the LLM being called at all when nothing relevant is found; (2) the prompt tells the model to reply `INSUFFICIENT_EVIDENCE` if the passages do not contain the answer. Similarity is *not* proof an answer is correct, so the UI shows the sources for you to check.
 - **Prompt-injection defence:** retrieved text is wrapped in `<excerpt>` tags, `</` is neutralised so a document cannot close the tag, and the system prompt states excerpts are data, not instructions. This reduces the risk; no prompt defence is perfect.
 - **Duplicates:** each file's SHA-256 is stored (unique). Re-uploading identical bytes (even renamed) returns "already indexed" and adds no chunks. A previously *failed* file is retried on its existing record. Chunk ids are `documentId:index` and re-indexing deletes old chunks first, so it is idempotent.
 - **Deletion:** vectors are removed first and verified; only then the file and database row. If vector deletion fails, nothing else is deleted so you can retry (no orphans).
 - Processing is synchronous inside the upload request (fine for study-sized PDFs). On startup, any document left in Pending/Processing by a crash is marked Failed.
 - Chat history is kept in your browser tab (`sessionStorage`), not on the server.
+
+### Chunking changes and re-indexing
+
+Chunk boundaries determine stored embeddings, so documents already indexed with earlier chunking settings are not converted automatically. Back up the data directory and keep copies of the original PDFs before re-indexing. Re-index each document from its original PDF using the new settings; ingestion replaces that document's vectors by document ID before adding new chunk IDs, so its old and new chunks are not mixed. The upload UI treats a ready file with the same hash as a duplicate rather than a re-index request. Do not delete the Chroma database to re-index; use a controlled per-document re-index workflow. The app currently has no dedicated re-index UI or command.
+
+The PDF extractor does not perform OCR. Scanned PDFs with insufficient selectable text remain rejected as before.
+
+To compare chunk settings with the bundled labeled PDFs and dataset, run from `backend`:
+
+```powershell
+.\.venv\Scripts\python.exe -m evaluation.run_eval --pdf ..\samples\sample_api_testing_notes.pdf ..\samples\sample_cicd_pipeline_notes.pdf --dataset evaluation\sample_dataset.json --chunk-target-tokens 180 --chunk-max-tokens 250 --chunk-overlap-tokens 50 --out $env:TEMP\chunk-eval.json
+```
+
+Use overlap values `0`, `50`, and `100` for a small overlap sweep. Existing `.env` files should replace `CHUNK_SIZE_CHARS` and `CHUNK_OVERLAP_CHARS` with `CHUNK_TARGET_TOKENS`, `CHUNK_MAX_TOKENS`, and `CHUNK_OVERLAP_TOKENS`.
 
 > **Project status and what has been verified:** see [`docs/STATUS.md`](docs/STATUS.md).
 
@@ -201,7 +217,7 @@ It prints Recall@5 (is the labelled page in the top 5?), top-1 page accuracy, la
 | `EMBEDDING_BACKEND` | `sentence-transformers` | `hash` is a test double; never use it for real work |
 | `DATA_DIR` / `SQLITE_PATH` / `UPLOAD_DIR` / `CHROMA_DIR` | `..\data` | Persistent storage |
 | `MAX_UPLOAD_MB`, `MAX_FILES_PER_REQUEST` | 25, 10 | Upload limits |
-| `CHUNK_SIZE_CHARS`, `CHUNK_OVERLAP_CHARS` | 2000, 300 | About 500 and 75 tokens (roughly 4 characters per token) |
+| `CHUNK_TARGET_TOKENS`, `CHUNK_MAX_TOKENS`, `CHUNK_OVERLAP_TOKENS` | 180, 250, 50 | Maximum is clamped to the embedding tokenizer's sequence limit |
 | `TOP_K`, `MIN_SCORE` | 5, 0.25 | Retrieval size and similarity threshold |
 | `CORS_ORIGINS` | `http://localhost:5173,...` | Allowed frontend origins |
 

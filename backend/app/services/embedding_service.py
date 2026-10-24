@@ -12,6 +12,13 @@ class Embedder(Protocol):
     def embed(self, texts: list[str]) -> list[list[float]]: ...
 
     @property
+    def max_input_tokens(self) -> int | None: ...
+
+    def token_count(self, text: str) -> int: ...
+
+    def split_text(self, text: str, max_tokens: int) -> list[str]: ...
+
+    @property
     def loaded(self) -> bool: ...
 
 
@@ -26,6 +33,47 @@ class SentenceTransformerEmbedder:
     @property
     def loaded(self) -> bool:
         return self._model is not None
+
+    @property
+    def max_input_tokens(self) -> int:
+        return int(self._load().max_seq_length)
+
+    def token_count(self, text: str) -> int:
+        model = self._load()
+        return len(model.tokenizer.encode(text, add_special_tokens=True, truncation=False))
+
+    def split_text(self, text: str, max_tokens: int) -> list[str]:
+        if max_tokens < 2:
+            raise ValueError("max_tokens must leave room for content and special tokens")
+        tokenizer = self._load().tokenizer
+        encoded = tokenizer(
+            text,
+            add_special_tokens=False,
+            truncation=False,
+            return_offsets_mapping=True,
+        )
+        offsets = encoded["offset_mapping"]
+        special_tokens = tokenizer.num_special_tokens_to_add(pair=False)
+        width = max_tokens - special_tokens
+        if width < 1:
+            raise ValueError("max_tokens is too small for the tokenizer's special tokens")
+
+        pieces: list[str] = []
+        cursor = 0
+        while cursor < len(offsets):
+            end = min(cursor + width, len(offsets))
+            while end > cursor:
+                start_char = offsets[cursor][0]
+                end_char = offsets[end - 1][1]
+                piece = text[start_char:end_char].strip()
+                if piece and self.token_count(piece) <= max_tokens:
+                    pieces.append(piece)
+                    cursor = end
+                    break
+                end -= 1
+            else:
+                raise ValueError("The tokenizer could not split text within the model sequence limit")
+        return pieces
 
     def _load(self):
         with self._lock:
@@ -52,6 +100,20 @@ class HashEmbedder:
 
     def __init__(self):
         self.name = "hash-test-embedder"
+
+    @property
+    def max_input_tokens(self) -> int | None:
+        return None
+
+    def token_count(self, text: str) -> int:
+        from app.services.chunking_service import estimate_tokens
+
+        return estimate_tokens(text)
+
+    def split_text(self, text: str, max_tokens: int) -> list[str]:
+        from app.services.chunking_service import _split_long
+
+        return _split_long(text, max_tokens)
 
     @property
     def loaded(self) -> bool:

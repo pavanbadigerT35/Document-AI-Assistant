@@ -25,9 +25,10 @@ class Settings(BaseSettings):
     max_upload_mb: int = Field(25, ge=1, le=200)
     max_files_per_request: int = Field(10, ge=1, le=50)
 
-    # chunking: ~4 chars per token, so 2000 chars ~ 500 tokens and 300 chars ~ 75 tokens
-    chunk_size_chars: int = Field(2000, ge=200, le=8000)
-    chunk_overlap_chars: int = Field(300, ge=0)
+    # The embedder clamps this maximum to its tokenizer's sequence limit.
+    chunk_target_tokens: int = Field(180, ge=50, le=2000)
+    chunk_max_tokens: int = Field(250, ge=50, le=2000)
+    chunk_overlap_tokens: int = Field(50, ge=0, le=1000)
 
     # embeddings. "hash" exists ONLY for automated tests / offline evaluation.
     embedding_backend: Literal["sentence-transformers", "hash"] = "sentence-transformers"
@@ -55,8 +56,10 @@ class Settings(BaseSettings):
         self.sqlite_path = Path(self.sqlite_path).resolve() if self.sqlite_path else self.data_dir / "app.db"
         self.upload_dir = Path(self.upload_dir).resolve() if self.upload_dir else self.data_dir / "uploads"
         self.chroma_dir = Path(self.chroma_dir).resolve() if self.chroma_dir else self.data_dir / "chroma"
-        if self.chunk_overlap_chars >= self.chunk_size_chars:
-            raise ValueError("CHUNK_OVERLAP_CHARS must be smaller than CHUNK_SIZE_CHARS")
+        if self.chunk_max_tokens < self.chunk_target_tokens:
+            raise ValueError("CHUNK_MAX_TOKENS must be at least CHUNK_TARGET_TOKENS")
+        if self.chunk_overlap_tokens >= self.chunk_max_tokens:
+            raise ValueError("CHUNK_OVERLAP_TOKENS must be smaller than CHUNK_MAX_TOKENS")
         return self
 
     @property

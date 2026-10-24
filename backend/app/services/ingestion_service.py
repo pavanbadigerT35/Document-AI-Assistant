@@ -26,7 +26,18 @@ def ingest_document(c: Container, db: Session, doc: Document, path: Path) -> Doc
             raise PDFExtractionError(
                 "No selectable text was found. This looks like a scanned PDF; OCR is not implemented in this version."
             )
-        chunks = chunk_pages(extracted.pages, c.settings.chunk_size_chars, c.settings.chunk_overlap_chars)
+        model_limit = c.embedder.max_input_tokens
+        max_tokens = min(c.settings.chunk_max_tokens, model_limit) if model_limit is not None else c.settings.chunk_max_tokens
+        target_tokens = min(c.settings.chunk_target_tokens, max_tokens)
+        chunks = chunk_pages(
+            extracted.pages,
+            target_tokens,
+            c.settings.chunk_overlap_tokens,
+            max_size=max_tokens,
+            headings=extracted.headings,
+            token_counter=c.embedder.token_count,
+            text_splitter=c.embedder.split_text,
+        )
         embeddings: list[list[float]] = []
         for i in range(0, len(chunks), EMBED_BATCH):
             embeddings.extend(c.embedder.embed([ch.text for ch in chunks[i : i + EMBED_BATCH]]))
