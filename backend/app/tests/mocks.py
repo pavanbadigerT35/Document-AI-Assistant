@@ -20,8 +20,8 @@ class MockLLM:
             if self.quiz_json is not None:
                 return json.dumps(self.quiz_json)
             sid = (re.findall(r'<excerpt id="(S\d+)"', user) or ["S1"])[0]
-            if "short-answer" in system:
-                return json.dumps({"questions": [{"question": "What is described?", "answer": "See excerpt.", "source_id": sid}]})
+            if "descriptive-answer" in system:
+                return json.dumps({"questions": [{"question": "What is described?", "answer": "The excerpt describes the main idea in detail. It explains how the relevant process works and why it matters. These details are supported by the source passage.", "source_id": sid}]})
             return json.dumps({"questions": [{"question": "Pick the right statement", "options": ["A", "B", "C", "D"], "correct_index": 1, "explanation": "Because the excerpt says so.", "source_id": sid}]})
         if self.reply is not None:
             return self.reply

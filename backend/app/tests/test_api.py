@@ -259,7 +259,8 @@ def test_quiz_mcq_uses_real_sources(client, doc_a):
 
 def test_quiz_by_topic_and_short_answer(client, doc_a):
     r = client.post("/api/v1/quiz/generate", json={"topic": ATP_Q, "kind": "short_answer", "num_questions": 2})
-    assert r.status_code == 200 and r.json()["questions"][0]["answer"]
+    answer = r.json()["questions"][0]["answer"]
+    assert r.status_code == 200 and len(answer.split(". ")) >= 3
 
 
 def test_quiz_drops_questions_with_unknown_sources(settings):

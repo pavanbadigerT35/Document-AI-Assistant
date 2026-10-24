@@ -301,6 +301,9 @@ describe("Quiz from a topic link", () => {
     await waitFor(() => expect(button).toBeEnabled());
     await userEvent.click(button);
     await waitFor(() => expect(api.generateQuiz).toHaveBeenCalledWith(["doc-1"], "Module 6", 5, "mcq"));
+    await userEvent.selectOptions(screen.getByLabelText("Question type"), "short_answer");
+    await userEvent.click(button);
+    await waitFor(() => expect(api.generateQuiz).toHaveBeenLastCalledWith(["doc-1"], "Module 6", 5, "short_answer"));
   });
 });
 

@@ -78,7 +78,7 @@ export default function Quiz() {
         </label>
         <label className="block text-sm font-medium">Question type
           <select className="field mt-1 font-normal" value={kind} onChange={(e) => setKind(e.target.value as "mcq" | "short_answer")}>
-            <option value="mcq">Multiple choice</option><option value="short_answer">Short answer</option>
+            <option value="mcq">Multiple choice</option><option value="short_answer">Descriptive answer</option>
           </select>
         </label>
         <div className="md:col-span-2"><button className="btn-primary" onClick={() => void generate()} disabled={loading || !!disabledReason}>Generate questions</button></div>
