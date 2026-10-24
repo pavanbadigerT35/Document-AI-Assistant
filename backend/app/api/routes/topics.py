@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_db
+from app.api.deps import get_container, get_db
+from app.core.container import Container
 from app.schemas.rag import DocumentTopics, Suggestion, TopicOut, TopicsResponse
 from app.services.topic_service import list_topics, suggest_questions
 
@@ -18,5 +19,12 @@ def topics(document_id: str | None = None, db: Session = Depends(get_db)):
 
 
 @router.get("/suggestions", response_model=list[Suggestion])
-def suggestions(document_id: str | None = None, limit: int = Query(6, ge=1, le=20), db: Session = Depends(get_db)):
-    return [Suggestion(**s) for s in suggest_questions(db, [document_id] if document_id else None, limit)]
+def suggestions(
+    document_ids: list[str] | None = Query(None),
+    document_id: str | None = None,
+    limit: int = Query(6, ge=1, le=20),
+    db: Session = Depends(get_db),
+    c: Container = Depends(get_container),
+):
+    selected_ids = document_ids or ([document_id] if document_id else None)
+    return [Suggestion(**s) for s in suggest_questions(db, c.store, selected_ids, limit)]

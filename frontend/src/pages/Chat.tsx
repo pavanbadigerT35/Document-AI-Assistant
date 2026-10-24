@@ -38,7 +38,12 @@ export default function Chat() {
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => { sessionStorage.setItem(STORE, JSON.stringify(messages)); end.current?.scrollIntoView?.({ block: "end" }); }, [messages]);
-  useEffect(() => { if (ready.length) api.suggestions(scope).then(setSuggestions).catch(() => setSuggestions([])); }, [ready.length, scope]);
+  useEffect(() => {
+    let active = true;
+    setSuggestions([]);
+    if (ready.length) api.suggestions(scope).then((items) => { if (active) setSuggestions(items); }).catch(() => { if (active) setSuggestions([]); });
+    return () => { active = false; };
+  }, [ready.length, scope]);
 
   async function ask(question: string) {
     const q = question.trim();
@@ -77,7 +82,7 @@ export default function Chat() {
       <section aria-label="Conversation" aria-live="polite" className="mb-4 space-y-5">
         {messages.length === 0 && ready.length > 0 && suggestions.length > 0 && (
           <div>
-            <p className="mb-2 text-sm text-ink-soft">Try a question based on headings found in your documents:</p>
+            <p className="mb-2 text-sm text-ink-soft">Try a question grounded in your documents:</p>
             <ul className="flex flex-wrap gap-2">
               {suggestions.map((s) => <li key={s.question}><button className="btn-quiet text-left" onClick={() => void ask(s.question)}>{s.question}</button></li>)}
             </ul>

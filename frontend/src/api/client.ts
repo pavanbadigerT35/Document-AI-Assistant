@@ -39,8 +39,11 @@ export const api = {
   chat: (question: string, documentIds: string[]) =>
     request<ChatResponse>("/api/v1/chat", json({ question, document_ids: documentIds.length ? documentIds : null })),
   topics: () => request<TopicsResponse>("/api/v1/topics"),
-  suggestions: (documentIds: string[]) =>
-    request<Suggestion[]>(`/api/v1/suggestions?limit=6${documentIds.length === 1 ? `&document_id=${documentIds[0]}` : ""}`),
+  suggestions: (documentIds: string[]) => {
+    const params = new URLSearchParams({ limit: "6" });
+    documentIds.forEach((id) => params.append("document_ids", id));
+    return request<Suggestion[]>(`/api/v1/suggestions?${params.toString()}`);
+  },
   quizHealth: () => request<QuizHealth>("/api/v1/quiz/health"),
   generateQuiz: (documentIds: string[], topic: string, numQuestions: number, kind: "mcq" | "short_answer") =>
     request<QuizResponse>("/api/v1/quiz/generate", json({ document_ids: documentIds.length ? documentIds : null, topic: topic.trim() || null, num_questions: numQuestions, kind })),

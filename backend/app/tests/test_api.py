@@ -291,9 +291,45 @@ def test_timestamps_are_marked_as_utc(client, doc_a):
 
 
 def test_suggestions_cover_every_document_and_use_clean_labels(client, doc_a):
-    upload(client, "devops.pdf", make_pdf([K8S_PAGE], {0: ["Module 2: Cluster Basics \u2013 3 Hours"]}))
+    upload(
+        client,
+        "devops.pdf",
+        make_pdf(
+            ["Kubernetes schedules containers across worker nodes. The scheduler chooses a node based on available resources and workload requirements."],
+            {0: ["Module 2: Cluster Basics \u2013 3 Hours"]},
+        ),
+    )
     items = client.get("/api/v1/suggestions?limit=2").json()
     assert {i["filename"] for i in items} == {"biology.pdf", "devops.pdf"}
     questions = [i["question"] for i in items]
-    assert "What does the document cover about Cluster Basics?" in questions
-    assert "What does the document cover about Cell Energy?" in questions
+    assert any("Cluster Basics" in question for question in questions)
+    assert any("Cell Energy" in question for question in questions)
+    assert all("What does the document cover about" not in question for question in questions)
+
+
+def test_suggestions_support_multiple_selected_documents(client, doc_a):
+    second = upload(
+        client,
+        "devops.pdf",
+        make_pdf(
+            ["Kubernetes schedules containers across worker nodes. The scheduler chooses a node based on available resources and workload requirements."],
+            {0: ["Cluster Scheduling"]},
+        ),
+    ).json()["results"][0]["document"]
+    response = client.get(
+        f"/api/v1/suggestions?document_ids={doc_a['id']}&document_ids={second['id']}&limit=6"
+    )
+    assert response.status_code == 200
+    assert {item["document_id"] for item in response.json()} == {doc_a["id"], second["id"]}
+
+
+def test_suggestions_skip_headings_without_grounded_content(client):
+    response = upload(client, "empty-sections.pdf", make_pdf([""], {0: ["Information Retrieval and", "References"]}))
+    document_id = response.json()["results"][0]["document"]["id"]
+    assert client.get(f"/api/v1/suggestions?document_id={document_id}").json() == []
+
+
+def test_suggestions_return_empty_for_documents_without_headings(client):
+    response = upload(client, "plain-text.pdf", make_pdf([K8S_PAGE]))
+    document_id = response.json()["results"][0]["document"]["id"]
+    assert client.get(f"/api/v1/suggestions?document_id={document_id}").json() == []

@@ -59,6 +59,26 @@ class VectorStore:
             return self._col.count()
         return len(self._col.get(where={"document_id": document_id}, include=[])["ids"])
 
+    def get_document_chunks(self, document_ids: list[str]) -> list[StoredChunk]:
+        if not document_ids:
+            return []
+        res = self._col.get(
+            where=self._where(document_ids),
+            include=["documents", "metadatas"],
+        )
+        chunks = [
+            StoredChunk(
+                chunk_id=chunk_id,
+                document_id=metadata["document_id"],
+                filename=metadata["filename"],
+                page=int(metadata["page"]),
+                chunk_index=int(metadata["chunk_index"]),
+                text=text,
+            )
+            for chunk_id, text, metadata in zip(res["ids"], res["documents"], res["metadatas"])
+        ]
+        return sorted(chunks, key=lambda chunk: (chunk.document_id, chunk.page, chunk.chunk_index))
+
     def _matching(self, document_ids: list[str] | None) -> int:
         if document_ids is None:
             return self._col.count()

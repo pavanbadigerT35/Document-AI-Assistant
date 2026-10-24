@@ -234,9 +234,12 @@ describe("AI chat", () => {
   });
 
   it("offers suggestions built from the documents", async () => {
-    api.suggestions.mockResolvedValue([{ question: "What does the document cover about Prompt Engineering for QA?", document_id: "doc-1", filename: "syllabus.pdf", page: 2 }]);
+    api.suggestions.mockResolvedValue([{ question: "How does Prompt Engineering for QA work?", document_id: "doc-1", filename: "syllabus.pdf", page: 2 }]);
+    api.chat.mockResolvedValue({ answer: "The section explains the process.", insufficient_evidence: false, warning: null, sources: [], retrieval: meta, llm: null });
     renderAt(<Chat />);
-    expect(await screen.findByRole("button", { name: /Prompt Engineering for QA/ })).toBeInTheDocument();
+    const suggestion = await screen.findByRole("button", { name: "How does Prompt Engineering for QA work?" });
+    await userEvent.click(suggestion);
+    await waitFor(() => expect(api.chat).toHaveBeenCalledWith("How does Prompt Engineering for QA work?", []));
   });
 });
 
